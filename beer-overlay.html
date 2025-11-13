@@ -22,7 +22,7 @@
   }
 </style>
 
-<!-- 1️⃣ Load tmi.js BEFORE any code that uses it -->
+<!-- Load tmi.js FIRST -->
 <script src="https://cdn.jsdelivr.net/npm/tmi.js@1.8.5/dist/tmi.min.js"></script>
 
 </head>
@@ -43,94 +43,96 @@
 </div>
 
 <script>
-// -------------------- CONFIG --------------------
-const TWITCH_CHANNEL = 'puuhabobi'; // replace with your Twitch channel
-const MAX_QUEUE = 8;
-const POUR_DURATION = 2000; // milliseconds
+window.onload = function() {
+  // -------------------- CONFIG --------------------
+  const TWITCH_CHANNEL = 'puuhabobi'; // replace with your Twitch username
+  const MAX_QUEUE = 8;
+  const POUR_DURATION = 2000; // milliseconds
 
-// -------------------- QUEUE SYSTEM --------------------
-let orderQueue = [];
-let isPouring = false;
+  // -------------------- QUEUE SYSTEM --------------------
+  let orderQueue = [];
+  let isPouring = false;
 
-function enqueueOrder(user, type) {
-  if(orderQueue.length >= MAX_QUEUE) return;
-  orderQueue.push({user,type});
-  updateQueueBadge();
-  processQueue();
-}
-
-function processQueue() {
-  if(isPouring || orderQueue.length === 0) return;
-  const order = orderQueue.shift();
-  updateQueueBadge();
-  pourBeer(order.user, order.type);
-}
-
-function updateQueueBadge() {
-  document.getElementById('queueBadge').innerText = `Queue: ${orderQueue.length}`;
-}
-
-// -------------------- ANIMATION --------------------
-function pourBeer(user, type) {
-  isPouring = true;
-  const beerFill = document.querySelector('.beer-fill');
-  const beerText = document.getElementById('beerText');
-
-  beerText.innerText = `${type.charAt(0).toUpperCase()+type.slice(1)} for ${user}! 🍺`;
-
-  // Change gradient based on beer type
-  const gradient = document.getElementById('beerGradient');
-  switch(type.toLowerCase()) {
-    case 'ipa':
-      gradient.children[0].setAttribute('stop-color','#F5CBA7');
-      gradient.children[1].setAttribute('stop-color','#F0B27A');
-      break;
-    case 'stout':
-      gradient.children[0].setAttribute('stop-color','#3E2F2F');
-      gradient.children[1].setAttribute('stop-color','#1C0F0F');
-      break;
-    case 'ale':
-      gradient.children[0].setAttribute('stop-color','#F8C471');
-      gradient.children[1].setAttribute('stop-color','#DC7633');
-      break;
-    case 'pilsner':
-      gradient.children[0].setAttribute('stop-color','#F9E79F');
-      gradient.children[1].setAttribute('stop-color','#F7DC6F');
-      break;
-    default: // lager
-      gradient.children[0].setAttribute('stop-color','#F7D358');
-      gradient.children[1].setAttribute('stop-color','#F4D03F');
-  }
-
-  beerFill.setAttribute('height',0); // start empty
-  beerFill.style.transition = `height ${POUR_DURATION}ms linear`;
-  setTimeout(()=>beerFill.setAttribute('height',160),50);
-
-  setTimeout(()=>{
-    beerFill.setAttribute('height',0);
-    beerText.innerText = '';
-    isPouring = false;
+  function enqueueOrder(user, type) {
+    if(orderQueue.length >= MAX_QUEUE) return;
+    orderQueue.push({user,type});
+    updateQueueBadge();
     processQueue();
-  }, POUR_DURATION+1000);
-}
-
-// -------------------- TWITCH CHAT WITH tmi.js --------------------
-const client = new tmi.Client({ channels: [TWITCH_CHANNEL] });
-
-client.connect().then(()=>console.log('✅ Connected to Twitch chat via tmi.js'));
-
-client.on('message', (channel, tags, message, self) => {
-  if(self) return; // ignore own messages
-
-  if(message.toLowerCase().startsWith('!beer')) {
-    const parts = message.split(' ');
-    const beerType = parts[1] || 'lager';
-    enqueueOrder(tags['display-name'] || tags.username, beerType);
   }
-});
 
-// -------------------- MANUAL TEST --------------------
-// enqueueOrder('TestUser','ipa'); // uncomment to test manually
+  function processQueue() {
+    if(isPouring || orderQueue.length === 0) return;
+    const order = orderQueue.shift();
+    updateQueueBadge();
+    pourBeer(order.user, order.type);
+  }
+
+  function updateQueueBadge() {
+    document.getElementById('queueBadge').innerText = `Queue: ${orderQueue.length}`;
+  }
+
+  // -------------------- ANIMATION --------------------
+  function pourBeer(user, type) {
+    isPouring = true;
+    const beerFill = document.querySelector('.beer-fill');
+    const beerText = document.getElementById('beerText');
+
+    beerText.innerText = `${type.charAt(0).toUpperCase()+type.slice(1)} for ${user}! 🍺`;
+
+    // Change gradient based on beer type
+    const gradient = document.getElementById('beerGradient');
+    switch(type.toLowerCase()) {
+      case 'ipa':
+        gradient.children[0].setAttribute('stop-color','#F5CBA7');
+        gradient.children[1].setAttribute('stop-color','#F0B27A');
+        break;
+      case 'stout':
+        gradient.children[0].setAttribute('stop-color','#3E2F2F');
+        gradient.children[1].setAttribute('stop-color','#1C0F0F');
+        break;
+      case 'ale':
+        gradient.children[0].setAttribute('stop-color','#F8C471');
+        gradient.children[1].setAttribute('stop-color','#DC7633');
+        break;
+      case 'pilsner':
+        gradient.children[0].setAttribute('stop-color','#F9E79F');
+        gradient.children[1].setAttribute('stop-color','#F7DC6F');
+        break;
+      default: // lager
+        gradient.children[0].setAttribute('stop-color','#F7D358');
+        gradient.children[1].setAttribute('stop-color','#F4D03F');
+    }
+
+    beerFill.setAttribute('height',0); // start empty
+    beerFill.style.transition = `height ${POUR_DURATION}ms linear`;
+    setTimeout(()=>beerFill.setAttribute('height',160),50);
+
+    setTimeout(()=>{
+      beerFill.setAttribute('height',0);
+      beerText.innerText = '';
+      isPouring = false;
+      processQueue();
+    }, POUR_DURATION+1000);
+  }
+
+  // -------------------- TWITCH CHAT WITH tmi.js --------------------
+  const client = new tmi.Client({ channels: [TWITCH_CHANNEL] });
+
+  client.connect().then(()=>console.log('✅ Connected to Twitch chat via tmi.js'));
+
+  client.on('message', (channel, tags, message, self) => {
+    if(self) return; // ignore own messages
+
+    if(message.toLowerCase().startsWith('!beer')) {
+      const parts = message.split(' ');
+      const beerType = parts[1] || 'lager';
+      enqueueOrder(tags['display-name'] || tags.username, beerType);
+    }
+  });
+
+  // -------------------- MANUAL TEST --------------------
+  // enqueueOrder('TestUser','ipa'); // uncomment to test manually
+};
 </script>
 </body>
 </html>
