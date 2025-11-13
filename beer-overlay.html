@@ -4,52 +4,49 @@
 <meta charset="UTF-8">
 <title>Beer Overlay</title>
 <style>
-  html, body { margin:0; padding:0; overflow:hidden; background:transparent; }
-  #overlay { position: relative; width:100vw; height:100vh; }
-  .glass {
-    position:absolute; bottom:50px; left:50%; transform:translateX(-50%); width:100px; height:200px;
-  }
-  .beer-fill {
-    fill:url(#beerGradient);
-    transform-origin: bottom;
-  }
-  .beer-text {
-    position:absolute; top:20px; width:100%; text-align:center; font-size:24px; color:#fff; text-shadow:1px 1px 3px #000;
-  }
-  #queueBadge {
-    position:absolute; top:20px; right:20px; background:rgba(0,0,0,0.5); color:#fff; padding:5px 10px; border-radius:10px;
-    font-family:sans-serif; font-weight:bold;
-  }
+html, body { margin:0; padding:0; overflow:hidden; background:transparent; }
+#overlay { position: relative; width:100vw; height:100vh; }
+.glass {
+  position:absolute; bottom:50px; left:50%; transform:translateX(-50%); width:100px; height:200px;
+}
+.beer-fill { fill:url(#beerGradient); transform-origin: bottom; }
+.beer-text { position:absolute; top:20px; width:100%; text-align:center; font-size:24px; color:#fff; text-shadow:1px 1px 3px #000; }
+#queueBadge {
+  position:absolute; top:20px; right:20px; background:rgba(0,0,0,0.5); color:#fff; padding:5px 10px; border-radius:10px;
+  font-family:sans-serif; font-weight:bold;
+}
 </style>
 
-<!-- ✅ Browser-ready tmi.js that exposes global `tmi` -->
-<script src="https://twitchapps.github.io/tmi.js/dist/tmi.min.js"></script>
+<!-- Correct tmi.js for browser -->
+<script src="https://unpkg.com/tmi.js@1.8.5/dist/tmi.min.js"></script>
 
 </head>
 <body>
 <div id="overlay">
-  <svg class="glass" viewBox="0 0 100 200">
-    <defs>
-      <linearGradient id="beerGradient" x1="0" y1="1" x2="0" y2="0">
-        <stop offset="0%" stop-color="#F7D358"/>
-        <stop offset="100%" stop-color="#F4D03F"/>
-      </linearGradient>
-    </defs>
-    <rect class="beer-fill" x="20" y="20" width="60" height="160"/>
-    <rect x="20" y="20" width="60" height="160" fill="none" stroke="#fff" stroke-width="3"/>
-  </svg>
-  <div id="beerText" class="beer-text"></div>
-  <div id="queueBadge">Queue: 0</div>
+<svg class="glass" viewBox="0 0 100 200">
+<defs>
+  <linearGradient id="beerGradient" x1="0" y1="1" x2="0" y2="0">
+    <stop offset="0%" stop-color="#F7D358"/>
+    <stop offset="100%" stop-color="#F4D03F"/>
+  </linearGradient>
+</defs>
+<rect class="beer-fill" x="20" y="20" width="60" height="160"/>
+<rect x="20" y="20" width="60" height="160" fill="none" stroke="#fff" stroke-width="3"/>
+</svg>
+<div id="beerText" class="beer-text"></div>
+<div id="queueBadge">Queue: 0</div>
 </div>
 
 <script>
 window.onload = function() {
-  // -------------------- CONFIG --------------------
-  const TWITCH_CHANNEL = 'puuhabobi'; // Replace with your Twitch username
-  const MAX_QUEUE = 8;
-  const POUR_DURATION = 2000; // milliseconds
+  const tmiGlobal = window.tmi; // <-- THIS FIXES tmi undefined
 
-  // -------------------- QUEUE SYSTEM --------------------
+  // ---------------- CONFIG ----------------
+  const TWITCH_CHANNEL = 'puuhabobi'; // replace with your Twitch username
+  const MAX_QUEUE = 8;
+  const POUR_DURATION = 2000;
+
+  // ---------------- QUEUE ----------------
   let orderQueue = [];
   let isPouring = false;
 
@@ -71,7 +68,7 @@ window.onload = function() {
     document.getElementById('queueBadge').innerText = `Queue: ${orderQueue.length}`;
   }
 
-  // -------------------- ANIMATION --------------------
+  // ---------------- ANIMATION ----------------
   function pourBeer(user, type) {
     isPouring = true;
     const beerFill = document.querySelector('.beer-fill');
@@ -81,25 +78,11 @@ window.onload = function() {
 
     const gradient = document.getElementById('beerGradient');
     switch(type.toLowerCase()) {
-      case 'ipa':
-        gradient.children[0].setAttribute('stop-color','#F5CBA7');
-        gradient.children[1].setAttribute('stop-color','#F0B27A');
-        break;
-      case 'stout':
-        gradient.children[0].setAttribute('stop-color','#3E2F2F');
-        gradient.children[1].setAttribute('stop-color','#1C0F0F');
-        break;
-      case 'ale':
-        gradient.children[0].setAttribute('stop-color','#F8C471');
-        gradient.children[1].setAttribute('stop-color','#DC7633');
-        break;
-      case 'pilsner':
-        gradient.children[0].setAttribute('stop-color','#F9E79F');
-        gradient.children[1].setAttribute('stop-color','#F7DC6F');
-        break;
-      default: // lager
-        gradient.children[0].setAttribute('stop-color','#F7D358');
-        gradient.children[1].setAttribute('stop-color','#F4D03F');
+      case 'ipa': gradient.children[0].setAttribute('stop-color','#F5CBA7'); gradient.children[1].setAttribute('stop-color','#F0B27A'); break;
+      case 'stout': gradient.children[0].setAttribute('stop-color','#3E2F2F'); gradient.children[1].setAttribute('stop-color','#1C0F0F'); break;
+      case 'ale': gradient.children[0].setAttribute('stop-color','#F8C471'); gradient.children[1].setAttribute('stop-color','#DC7633'); break;
+      case 'pilsner': gradient.children[0].setAttribute('stop-color','#F9E79F'); gradient.children[1].setAttribute('stop-color','#F7DC6F'); break;
+      default: gradient.children[0].setAttribute('stop-color','#F7D358'); gradient.children[1].setAttribute('stop-color','#F4D03F');
     }
 
     beerFill.setAttribute('height',0);
@@ -114,8 +97,8 @@ window.onload = function() {
     }, POUR_DURATION+1000);
   }
 
-  // -------------------- TWITCH CHAT WITH tmi.js --------------------
-  const client = new tmi.Client({ channels: [TWITCH_CHANNEL] });
+  // ---------------- TWITCH CHAT ----------------
+  const client = new tmiGlobal.Client({ channels: [TWITCH_CHANNEL] });
 
   client.connect().then(()=>console.log('✅ Connected to Twitch chat via tmi.js'));
 
