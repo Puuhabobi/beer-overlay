@@ -22,8 +22,8 @@
   }
 </style>
 
-<!-- Load tmi.js FIRST -->
-<script src="https://cdn.jsdelivr.net/npm/tmi.js@1.8.5/dist/tmi.min.js"></script>
+<!-- 1️⃣ Load tmi.js via unpkg, works in browser -->
+<script src="https://unpkg.com/tmi.js@1.8.5/dist/tmi.min.js"></script>
 
 </head>
 <body>
@@ -45,7 +45,7 @@
 <script>
 window.onload = function() {
   // -------------------- CONFIG --------------------
-  const TWITCH_CHANNEL = 'puuhabobi'; // replace with your Twitch username
+  const TWITCH_CHANNEL = 'puuhabobi'; // Replace with your Twitch username
   const MAX_QUEUE = 8;
   const POUR_DURATION = 2000; // milliseconds
 
@@ -79,7 +79,6 @@ window.onload = function() {
 
     beerText.innerText = `${type.charAt(0).toUpperCase()+type.slice(1)} for ${user}! 🍺`;
 
-    // Change gradient based on beer type
     const gradient = document.getElementById('beerGradient');
     switch(type.toLowerCase()) {
       case 'ipa':
@@ -103,7 +102,7 @@ window.onload = function() {
         gradient.children[1].setAttribute('stop-color','#F4D03F');
     }
 
-    beerFill.setAttribute('height',0); // start empty
+    beerFill.setAttribute('height',0);
     beerFill.style.transition = `height ${POUR_DURATION}ms linear`;
     setTimeout(()=>beerFill.setAttribute('height',160),50);
 
@@ -121,7 +120,7 @@ window.onload = function() {
   client.connect().then(()=>console.log('✅ Connected to Twitch chat via tmi.js'));
 
   client.on('message', (channel, tags, message, self) => {
-    if(self) return; // ignore own messages
+    if(self) return;
 
     if(message.toLowerCase().startsWith('!beer')) {
       const parts = message.split(' ');
