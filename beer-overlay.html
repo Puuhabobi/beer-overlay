@@ -1,0 +1,505 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Beer Draft Overlay</title>
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<style>
+  :root{
+    --glass-width: 220px;
+    --glass-height: 380px;
+    --bg: transparent;
+    --msg-font: 20px;
+  }
+  html,body{ height:100%; margin:0; background:var(--bg); overflow:hidden; font-family:Inter,system-ui,Arial,Helvetica,sans-serif; }
+  .overlay {
+    position: absolute;
+    left:50%;
+    bottom:8%;
+    transform: translateX(-50%);
+    width: calc(var(--glass-width) * 1.6);
+    pointer-events:none;
+  }
+
+  /* message bubble */
+  .message {
+    position:absolute;
+    left:50%;
+    top:-66px;
+    transform:translateX(-50%);
+    background:rgba(0,0,0,0.6);
+    color: #fff;
+    padding:10px 16px;
+    border-radius:10px;
+    font-weight:600;
+    font-size:var(--msg-font);
+    opacity:0;
+    transition: transform .4s cubic-bezier(.2,.9,.2,1), opacity .35s;
+    white-space:nowrap;
+    box-shadow: 0 6px 24px rgba(0,0,0,0.45);
+  }
+  .message.show {
+    opacity:1;
+    transform:translateX(-50%) translateY(-8px) scale(1.02);
+  }
+
+  .wrap {
+    display:flex;
+    gap:16px;
+    align-items:flex-end;
+  }
+
+  /* Glass container */
+  .glass-wrap {
+    width:var(--glass-width);
+    height:var(--glass-height);
+    position:relative;
+    perspective:1000px;
+    transform-origin:center bottom;
+  }
+
+  /* actual glass visuals */
+  .glass {
+    position:absolute;
+    left:0; right:0; margin:auto;
+    bottom:0;
+    width:100%;
+    height:100%;
+    border-radius:24px;
+    box-sizing:border-box;
+    padding:14px;
+    border:8px solid rgba(255,255,255,0.12);
+    background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+    overflow:hidden;
+    display:flex;
+    align-items:flex-end;
+    justify-content:center;
+    transform-origin:center bottom;
+    transition: transform .6s cubic-bezier(.2,.9,.2,1);
+    filter: drop-shadow(0 12px 30px rgba(0,0,0,0.5));
+  }
+
+  /* liquid element — we adjust height to "fill" */
+  .liquid {
+    position:absolute;
+    left:0; right:0;
+    bottom:0;
+    height:0%;
+    border-bottom-left-radius: 18px;
+    border-bottom-right-radius: 18px;
+    transition: height linear;
+    overflow:visible;
+  }
+  /* foam on top */
+  .foam {
+    position:absolute;
+    left:8px; right:8px;
+    bottom: calc(var(--liquid-height, 0%) - 14px);
+    height: 0px;
+    border-radius: 10px;
+    background: linear-gradient(180deg, rgba(255,255,255,0.95), rgba(255,255,255,0.85));
+    box-shadow: inset 0 6px 12px rgba(255,255,255,0.5);
+    transition: height .6s cubic-bezier(.2,.9,.2,1), bottom .6s;
+    pointer-events:none;
+  }
+
+  /* bubbles container (SVG placed absolutely) */
+  .bubbles {
+    position:absolute;
+    left:0; right:0;
+    bottom:0;
+    top:0;
+    pointer-events:none;
+  }
+
+  /* tap (visual pouring source) */
+  .tap {
+    position:absolute;
+    right:-48px;
+    top:-40px;
+    width:140px;
+    height:80px;
+    transform-origin:left bottom;
+    pointer-events:none;
+  }
+  .tap .spout {
+    position:absolute;
+    right:18px;
+    top:32px;
+    width:18px;
+    height:18px;
+    background:#222;
+    border-radius:6px;
+    box-shadow: inset 0 -3px 6px rgba(0,0,0,0.6);
+  }
+
+  /* small pour effect (liquid stream) */
+  .pour-stream {
+    position:absolute;
+    right:58px;
+    top:44px;
+    width:6px;
+    height:0px;
+    border-radius:6px;
+    opacity:0;
+    transform-origin:top center;
+    transition: height linear, opacity .08s;
+    pointer-events:none;
+  }
+
+  /* tilt animations for lively effect */
+  .glass.tilt-left { transform: rotate(-6deg) translateY(6px); }
+  .glass.tilt-right { transform: rotate(6deg) translateY(6px); }
+
+  /* type-specific style placeholders — we set CSS variables from JS */
+  .liquid { background: var(--liquid-gradient, linear-gradient(#f4c542,#fdd25a)); }
+  .pour-stream { background: var(--stream-color, #f3c84a); box-shadow: 0 0 10px rgba(255,255,255,0.08); }
+  .foam { background: var(--foam-color,#fffcdc); }
+
+  /* small text label under glass (optional) */
+  .label {
+    margin-top:8px;
+    font-size:13px;
+    color:rgba(255,255,255,0.85);
+    text-align:center;
+    font-weight:600;
+    text-shadow:0 2px 6px rgba(0,0,0,0.5);
+  }
+
+  /* animation helpers for bubbles (we animate SVG circles via SMIL-like CSS classes) */
+  .bubble { opacity:0.95; transform-origin:center bottom; transition: transform linear, opacity linear; }
+
+  /* subtle entrance */
+  .overlay.enter { animation: overlayIn .55s ease backwards; }
+  @keyframes overlayIn { from{ transform: translateX(-50%) translateY(30px); opacity:0 } to{ transform: translateX(-50%) translateY(0); opacity:1 } }
+
+  /* small confetti-ish pop */
+  .pop {
+    position:absolute; left:50%; top:-6px; transform:translateX(-50%); font-size:22px; opacity:0; transition:opacity .25s;
+  }
+  .pop.show { opacity:1; transform:translateX(-50%) translateY(-6px) scale(1.02); }
+
+  /* responsive */
+  @media (max-width:1000px) {
+    :root{ --glass-width:160px; --glass-height:300px; --msg-font:16px; }
+  }
+</style>
+</head>
+<body>
+  <div class="overlay enter" id="overlay">
+    <div class="message" id="message">IPA for viewer!</div>
+
+    <div class="wrap">
+      <div class="glass-wrap">
+        <div class="glass" id="glass">
+          <div class="liquid" id="liquid" aria-hidden="true"></div>
+          <div class="foam" id="foam" aria-hidden="true"></div>
+          <svg class="bubbles" id="bubbles" viewBox="0 0 220 380" preserveAspectRatio="none"></svg>
+        </div>
+
+        <div class="tap" id="tap" aria-hidden="true">
+          <!-- simple decorative tap -->
+          <svg viewBox="0 0 160 80" width="100%" height="100%" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+            <rect x="0" y="12" width="92" height="18" rx="6" fill="#111" opacity="0.7"/>
+            <rect x="10" y="28" width="68" height="12" rx="6" fill="#222" />
+            <rect x="74" y="28" width="14" height="4" fill="#333"/>
+            <rect x="84" y="24" width="12" height="12" fill="#333"/>
+            <g transform="translate(110,18)">
+              <rect x="0" y="10" width="24" height="12" rx="3" fill="#222" />
+              <rect x="6" y="4" width="12" height="24" rx="3" fill="#444" />
+            </g>
+          </svg>
+          <div class="spout"></div>
+        </div>
+
+        <div class="pour-stream" id="pourStream" aria-hidden="true"></div>
+
+      </div>
+
+      <div style="display:flex;flex-direction:column;align-items:center;gap:6px;">
+        <div class="label" id="typeLabel">LAGER</div>
+        <div style="width:120px;height:2px;background:rgba(255,255,255,0.06);border-radius:2px"></div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- optional audio elements — user should host these and replace srcs -->
+  <audio id="sound-lager" preload="auto" src=""></audio>
+  <audio id="sound-ipa" preload="auto" src=""></audio>
+  <audio id="sound-stout" preload="auto" src=""></audio>
+  <audio id="sound-ale" preload="auto" src=""></audio>
+  <audio id="sound-pilsner" preload="auto" src=""></audio>
+
+  <!-- Socket.IO -->
+  <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+  <script>
+/*
+  NOTE:
+   - Replace STREAMLABS_SOCKET_TOKEN with your token.
+   - This overlay expects Cloudbot to enforce loyalty cost (Cloudbot custom command with point cost).
+   - When a viewer types: !beer <type> (e.g. !beer ipa) Cloudbot will send a chat_message event through Streamlabs sockets.
+   - This script listens for chat_message events and triggers the animation.
+*/
+
+const STREAMLABS_SOCKET_TOKEN = "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ0b2tlbiI6IjFFQkI5MzY0NjcwNzE3QjlBRkFFIiwicmVhZF9vbmx5Ijp0cnVlLCJwcmV2ZW50X21hc3RlciI6dHJ1ZSwidHdpdGNoX2lkIjoiODEyMzYxODEifQ.CXPGKRdDbOWjVNx5l_LZ4j1LiCE7VBcnpQx4Q11gISw"; // <<< REPLACE
+const ENABLE_SOUNDS = false; // set true if you provide sound files (update audio srcs above)
+
+// beer type definitions
+const BEER_TYPES = {
+  lager: {
+    label: "LAGER",
+    gradient: "linear-gradient(to top, #e9b84a, #f9d675)",
+    streamColor: "#f1c24a",
+    foamHeight: 22,
+    pourDuration: 2200,      // ms
+    foamDuration: 900,
+    bubbleIntensity: 0.6,    // 0..1
+    tilt: "tilt-right",
+    soundId: "sound-lager"
+  },
+  ipa: {
+    label: "IPA",
+    gradient: "linear-gradient(to top, #f7a63a, #ffd276)",
+    streamColor: "#f6ab3a",
+    foamHeight: 28,
+    pourDuration: 2600,
+    foamDuration: 1100,
+    bubbleIntensity: 0.8,
+    tilt: "tilt-left",
+    soundId: "sound-ipa"
+  },
+  stout: {
+    label: "STOUT",
+    gradient: "linear-gradient(to top, #302a28, #5b4541)",
+    streamColor: "#2b2220",
+    foamColor: "#f5f0da",
+    foamHeight: 40,
+    pourDuration: 3300,
+    foamDuration: 1500,
+    bubbleIntensity: 0.18,
+    tilt: "tilt-left",
+    soundId: "sound-stout"
+  },
+  ale: {
+    label: "ALE",
+    gradient: "linear-gradient(to top, #d88c2f, #f3c567)",
+    streamColor: "#dc9a38",
+    foamHeight: 26,
+    pourDuration: 2400,
+    foamDuration: 1000,
+    bubbleIntensity: 0.68,
+    tilt: "tilt-right",
+    soundId: "sound-ale"
+  },
+  pilsner: {
+    label: "PILSNER",
+    gradient: "linear-gradient(to top, #f6d55c, #fff3b0)",
+    streamColor: "#f4d85a",
+    foamHeight: 18,
+    pourDuration: 2000,
+    foamDuration: 700,
+    bubbleIntensity: 0.5,
+    tilt: "",
+    soundId: "sound-pilsner"
+  }
+};
+
+// DOM references
+const liquid = document.getElementById('liquid');
+const foam = document.getElementById('foam');
+const pourStream = document.getElementById('pourStream');
+const bubblesSVGElem = document.getElementById('bubbles');
+const msgElem = document.getElementById('message');
+const overlay = document.getElementById('overlay');
+const glassElem = document.getElementById('glass');
+const typeLabel = document.getElementById('typeLabel');
+
+let busy = false; // prevents overlapping pours
+
+// helper: set CSS variables for a beer
+function applyBeerStyle(cfg) {
+  document.documentElement.style.setProperty('--liquid-gradient', cfg.gradient || BEER_TYPES.lager.gradient);
+  document.documentElement.style.setProperty('--stream-color', cfg.streamColor || '#f1c24a');
+  document.documentElement.style.setProperty('--foam-color', cfg.foamColor || '#fff9d9');
+  typeLabel.textContent = cfg.label || 'BEER';
+}
+
+// helper: small random int
+function rnd(min, max) { return Math.floor(Math.random()*(max-min+1))+min; }
+
+// create bubble SVGs based on intensity
+function populateBubbles(intensity) {
+  // clear
+  while (bubblesSVGElem.firstChild) bubblesSVGElem.removeChild(bubblesSVGElem.firstChild);
+  const viewW = 220, viewH = 380;
+  const count = Math.round(6 + intensity * 18); // number of bubble particles
+  for (let i=0;i<count;i++){
+    const cx = rnd(24, viewW - 24);
+    const cy = rnd(viewH - 60, viewH - 10); // lower part inside glass
+    const r = Math.max(1.5, Math.random()*6 * (0.9 + intensity));
+    const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+    circle.setAttribute("cx", cx);
+    circle.setAttribute("cy", cy);
+    circle.setAttribute("r", r);
+    circle.setAttribute("fill", "rgba(255,255,255,0.6)");
+    circle.classList.add('bubble');
+    // store individual animation properties on element
+    const rise = rnd(1400, 3500) * (1.0 - intensity*0.35);
+    const delay = rnd(0, 400);
+    circle.style.transitionDuration = (rise/1000) + "s";
+    circle.style.transitionDelay = (delay/1000) + "s";
+    bubblesSVGElem.appendChild(circle);
+
+    // schedule a looped rise animation after a small delay
+    (function(c, riseTime){
+      setTimeout(()=>{
+        // animate: translateY upwards and fade
+        c.style.transform = `translateY(-${rnd(40,170)}px)`;
+        c.style.opacity = 0;
+        // after animation, reset and repeat (simple loop)
+        setTimeout(()=>{
+          c.style.transition = 'none';
+          c.style.transform = 'translateY(0)';
+          c.style.opacity = 0.95;
+          // force reflow then reapply transition
+          void c.offsetWidth;
+          c.style.transition = `transform ${riseTime/1000}s linear, opacity ${riseTime/1000}s linear`;
+          // start again
+          setTimeout(()=>{ c.style.transform = `translateY(-${rnd(40,170)}px)`; c.style.opacity = 0; }, 80);
+          // we will not strictly loop forever — each bubble will animate twice; next pour will repopulate
+        }, riseTime + 180);
+      }, delay);
+    })(circle, rise);
+  }
+}
+
+// animate the pour sequence
+async function serveBeer(viewer, typeKey) {
+  if (busy) return;
+  busy = true;
+
+  const cfg = BEER_TYPES[typeKey] || BEER_TYPES.lager;
+  applyBeerStyle(cfg);
+  populateBubbles(cfg.bubbleIntensity);
+
+  // message
+  msgElem.textContent = `${cfg.label} for ${viewer} 🍺`;
+  msgElem.classList.add('show');
+
+  // set pour stream visuals
+  pourStream.style.background = cfg.streamColor;
+  pourStream.style.opacity = 1;
+  pourStream.style.height = '0px';
+
+  // optional sound
+  if (ENABLE_SOUNDS && cfg.soundId) {
+    try { const s = document.getElementById(cfg.soundId); if (s && s.src) { s.currentTime = 0; s.play().catch(()=>{}); } } catch(e){}
+  }
+
+  // glass tilt
+  glassElem.classList.remove('tilt-left','tilt-right');
+  if (cfg.tilt) glassElem.classList.add(cfg.tilt);
+
+  // start pour: animate stream (height) + liquid height increase
+  const pourMs = cfg.pourDuration;
+  const foamMs = cfg.foamDuration;
+
+  // show pour stream visually — grow height quickly
+  pourStream.style.opacity = 1;
+  pourStream.style.height = ( (parseInt(getComputedStyle(document.documentElement).getPropertyValue('--glass-height')) / 4) ) + 'px'; // short visual
+
+  // animate liquid fill — we use CSS height with linear timing
+  liquid.style.transition = `height ${pourMs}ms linear`;
+  foam.style.transition = `height ${foamMs}ms cubic-bezier(.2,.9,.2,1), bottom ${foamMs}ms`;
+
+  // target fill percent (random small variance)
+  const fillPercent = 92 + Math.round(Math.random()*6 - 3); // between ~89-98
+  // but for stout maybe leave smaller visible head (dark)
+  let finalPercent = fillPercent;
+  // change pour color already applied via CSS var
+  liquid.style.height = finalPercent + '%';
+  // foam appear
+  setTimeout(()=> {
+    foam.style.height = cfg.foamHeight + "px";
+    // position foam on top of liquid
+    foam.style.bottom = `calc(${finalPercent}% - 14px)`;
+  }, Math.max(80, pourMs * 0.45));
+
+  // after pour completes, hide stream and let foam settle
+  setTimeout(()=>{
+    pourStream.style.opacity = 0;
+    pourStream.style.height = '0px';
+  }, pourMs + 60);
+
+  // keep glass full for a while for viewers to see
+  const displayTime = 4200 + Math.round(Math.random()*1600);
+  // small pop indicator
+  const popEl = document.createElement('div');
+  popEl.className = 'pop';
+  popEl.textContent = 'Cheers!';
+  overlay.appendChild(popEl);
+  setTimeout(()=> popEl.classList.add('show'), 220);
+  setTimeout(()=> { popEl.classList.remove('show'); setTimeout(()=> overlay.removeChild(popEl), 400); }, 2000);
+
+  // after displayTime, fade out
+  setTimeout(() => {
+    msgElem.classList.remove('show');
+    // reset glass tilt
+    glassElem.classList.remove(cfg.tilt);
+    // retract foam and liquid
+    foam.style.height = '0px';
+    foam.style.bottom = '0px';
+    liquid.style.transition = 'height 900ms cubic-bezier(.2,.9,.2,1)';
+    liquid.style.height = '0%';
+    // quickly drop bubbles
+    Array.from(bubblesSVGElem.querySelectorAll('.bubble')).forEach(c => { c.style.opacity = 0; c.style.transform = 'translateY(0)'; });
+    // mark free after transitions
+    setTimeout(()=> { busy = false; }, 1100);
+  }, pourMs + displayTime);
+}
+
+// ---------- Socket connection & event handling ----------
+if (!STREAMLABS_SOCKET_TOKEN || STREAMLABS_SOCKET_TOKEN.startsWith("YOUR_")) {
+  console.warn("STREAMLABS_SOCKET_TOKEN not set — overlay will not receive socket events. Replace token in the HTML.");
+} else {
+  try {
+    const socket = io(`https://sockets.streamlabs.com?token=${STREAMLABS_SOCKET_TOKEN}`, { transports: ["websocket"] });
+
+    socket.on('connect', ()=> { console.log('Connected to Streamlabs sockets'); });
+    socket.on('disconnect', ()=> { console.log('Disconnected from Streamlabs'); });
+
+    socket.on('event', (data)=>{
+      // streamlabs sends lots of events; chat messages are usually included as chat_message
+      try {
+        if (!data || !data.type) return;
+        // We're interested in chat messages
+        if (data.type === 'chat_message') {
+          // structure: data.message is an array of chunks — find the first element with message text and displayName
+          const msgChunk = Array.isArray(data.message) ? data.message[0] : (data.message || {});
+          const text = (msgChunk.message || "").trim();
+          const displayName = (msgChunk.displayName || (data.displayName || "viewer"));
+          // parse !beer command: !beer <type>
+          if (text.toLowerCase().startsWith('!beer')) {
+            const parts = text.split(/\s+/);
+            const requested = (parts[1] || "lager").toLowerCase();
+            // validate type, fallback to lager
+            const typeKey = BEER_TYPES[requested] ? requested : 'lager';
+            serveBeer(displayName, typeKey);
+          }
+        }
+      } catch (e) { console.error('Error handling socket event', e); }
+    });
+
+    // For debugging, listen to 'event:test' or raw events
+    socket.on('rawEvent', (d)=> console.debug('rawEvent', d));
+  } catch(e){
+    console.error('Socket connection error', e);
+  }
+}
+
+// allow manual testing via console:
+window.serveBeer = serveBeer;
+</script>
+</body>
+</html>
