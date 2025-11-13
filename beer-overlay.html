@@ -232,7 +232,7 @@
   <audio id="sound-pilsner" preload="auto" src=""></audio>
 
   <!-- Socket.IO -->
-  <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js"></script>
   <script>
 /*
   NOTE:
@@ -244,6 +244,28 @@
 
 const STREAMLABS_SOCKET_TOKEN = "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ0b2tlbiI6IjFFQkI5MzY0NjcwNzE3QjlBRkFFIiwicmVhZF9vbmx5Ijp0cnVlLCJwcmV2ZW50X21hc3RlciI6dHJ1ZSwidHdpdGNoX2lkIjoiODEyMzYxODEifQ.CXPGKRdDbOWjVNx5l_LZ4j1LiCE7VBcnpQx4Q11gISw"; // <<< REPLACE
 const ENABLE_SOUNDS = false; // set true if you provide sound files (update audio srcs above)
+
+  const socket = io(`https://sockets.streamlabs.com?token=${STREAMLABS_SOCKET_TOKEN}`);
+
+  socket.on("connect", () => {
+    console.log("✅ Connected to Streamlabs sockets");
+  });
+
+  socket.on("event", (eventData) => {
+    console.log("📨 Event received:", eventData);
+
+    if (eventData.type === "message") {
+      const msg = eventData.message[0];
+      if (!msg || msg.platform !== "twitch") return;
+
+      const text = msg.text.toLowerCase();
+      if (text.startsWith("!beer")) {
+        const parts = text.split(" ");
+        const beerType = parts[1] || "lager";
+        enqueueOrder(msg.displayName || msg.name, beerType);
+      }
+    }
+  });
 
 // beer type definitions
 const BEER_TYPES = {
