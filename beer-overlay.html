@@ -21,7 +21,7 @@
     font-family:sans-serif; font-weight:bold;
   }
 </style>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/tmi.js@1.8.5/dist/tmi.min.js"></script>
 </head>
 <body>
 <div id="overlay">
@@ -41,7 +41,7 @@
 
 <script>
 // -------------------- CONFIG --------------------
-const STREAMLABS_SOCKET_TOKEN = "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ0b2tlbiI6IjFFQkI5MzY0NjcwNzE3QjlBRkFFIiwicmVhZF9vbmx5Ijp0cnVlLCJwcmV2ZW50X21hc3RlciI6dHJ1ZSwidHdpdGNoX2lkIjoiODEyMzYxODEifQ.CXPGKRdDbOWjVNx5l_LZ4j1LiCE7VBcnpQx4Q11gISw"; // <- replace this
+const TWITCH_CHANNEL = 'puuhabobi'; // replace with your channel
 const MAX_QUEUE = 8;
 const POUR_DURATION = 2000; // milliseconds
 
@@ -50,14 +50,14 @@ let orderQueue = [];
 let isPouring = false;
 
 function enqueueOrder(user, type) {
-  if (orderQueue.length >= MAX_QUEUE) return;
+  if(orderQueue.length >= MAX_QUEUE) return;
   orderQueue.push({user,type});
   updateQueueBadge();
   processQueue();
 }
 
 function processQueue() {
-  if (isPouring || orderQueue.length === 0) return;
+  if(isPouring || orderQueue.length === 0) return;
   const order = orderQueue.shift();
   updateQueueBadge();
   pourBeer(order.user, order.type);
@@ -99,7 +99,7 @@ function pourBeer(user, type) {
       gradient.children[1].setAttribute('stop-color','#F4D03F');
   }
 
-  beerFill.setAttribute('height', 0); // start empty
+  beerFill.setAttribute('height',0); // start empty
   beerFill.style.transition = `height ${POUR_DURATION}ms linear`;
   setTimeout(()=>beerFill.setAttribute('height',160),50);
 
@@ -111,28 +111,21 @@ function pourBeer(user, type) {
   }, POUR_DURATION+1000);
 }
 
-// -------------------- STREAMLABS SOCKET --------------------
-const socket = io('https://sockets.streamlabs.com', {
-  transports: ['websocket'],
-  query: { token: STREAMLABS_SOCKET_TOKEN }
+// -------------------- TWITCH CHAT --------------------
+const client = new tmi.Client({
+    channels: [TWITCH_CHANNEL]
 });
 
-socket.on('connect', ()=>console.log('✅ Connected to Streamlabs sockets'));
-socket.on('disconnect', ()=>console.log('⚠️ Disconnected'));
-socket.on('connect_error', err=>console.error('❌ Connection error:',err));
+client.connect().then(()=>console.log('✅ Connected to Twitch chat via tmi.js'));
 
-socket.on('event', event => {
-  console.log('📨 Event received:', event);
-  if(event.type==='message'){
-    const msg = event.message[0];
-    if(!msg || msg.platform!=='twitch') return;
-    const text = msg.text.toLowerCase();
-    if(text.startsWith('!beer')){
-      const parts = text.split(' ');
-      const beerType = parts[1] || 'lager';
-      enqueueOrder(msg.displayName || msg.name, beerType);
+client.on('message', (channel, tags, message, self) => {
+    if(self) return;
+
+    if(message.toLowerCase().startsWith('!beer')) {
+        const parts = message.split(' ');
+        const beerType = parts[1] || 'lager';
+        enqueueOrder(tags['display-name'] || tags.username, beerType);
     }
-  }
 });
 
 // -------------------- MANUAL TEST --------------------
