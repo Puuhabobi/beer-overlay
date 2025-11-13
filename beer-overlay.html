@@ -247,6 +247,36 @@ const ENABLE_SOUNDS = false; // set true if you provide sound files (update audi
 
   const socket = io(`https://sockets.streamlabs.com?token=${STREAMLABS_SOCKET_TOKEN}`);
 
+    // connect to Streamlabs socket
+const socket = io('https://sockets.streamlabs.com', {
+  transports: ['websocket'],
+  query: { token: STREAMLABS_SOCKET_TOKEN }
+});
+
+socket.on('event', (event) => {
+  console.log('📨 Event received:', event);
+
+  if (event.type === 'message') {
+    const msg = event.message[0];
+    if (!msg || msg.platform !== 'twitch') return;
+
+    const text = msg.text.toLowerCase();
+    if (text.startsWith('!beer')) {
+      const parts = text.split(' ');
+      const beerType = parts[1] || 'lager';
+      enqueueOrder(msg.displayName || msg.name, beerType);
+    }
+  }
+});
+
+socket.on('disconnect', () => {
+  console.log('⚠️ Disconnected from Streamlabs sockets');
+});
+
+socket.on('connect_error', (err) => {
+  console.error('❌ Connection error:', err);
+});
+    
 // beer type definitions
 const BEER_TYPES = {
   lager: {
@@ -505,4 +535,5 @@ window.serveBeer = serveBeer;
 </script>
 </body>
 </html>
+
 
