@@ -21,7 +21,10 @@
     font-family:sans-serif; font-weight:bold;
   }
 </style>
+
+<!-- 1️⃣ Load tmi.js BEFORE any code that uses it -->
 <script src="https://cdn.jsdelivr.net/npm/tmi.js@1.8.5/dist/tmi.min.js"></script>
+
 </head>
 <body>
 <div id="overlay">
@@ -41,7 +44,7 @@
 
 <script>
 // -------------------- CONFIG --------------------
-const TWITCH_CHANNEL = 'puuhabobi'; // replace with your channel
+const TWITCH_CHANNEL = 'puuhabobi'; // replace with your Twitch channel
 const MAX_QUEUE = 8;
 const POUR_DURATION = 2000; // milliseconds
 
@@ -111,26 +114,23 @@ function pourBeer(user, type) {
   }, POUR_DURATION+1000);
 }
 
-// -------------------- TWITCH CHAT --------------------
-const client = new tmi.Client({
-    channels: [TWITCH_CHANNEL]
-});
+// -------------------- TWITCH CHAT WITH tmi.js --------------------
+const client = new tmi.Client({ channels: [TWITCH_CHANNEL] });
 
 client.connect().then(()=>console.log('✅ Connected to Twitch chat via tmi.js'));
 
 client.on('message', (channel, tags, message, self) => {
-    if(self) return;
+  if(self) return; // ignore own messages
 
-    if(message.toLowerCase().startsWith('!beer')) {
-        const parts = message.split(' ');
-        const beerType = parts[1] || 'lager';
-        enqueueOrder(tags['display-name'] || tags.username, beerType);
-    }
+  if(message.toLowerCase().startsWith('!beer')) {
+    const parts = message.split(' ');
+    const beerType = parts[1] || 'lager';
+    enqueueOrder(tags['display-name'] || tags.username, beerType);
+  }
 });
 
 // -------------------- MANUAL TEST --------------------
-// Uncomment to test directly in browser console
-// enqueueOrder('TestUser','ipa');
+// enqueueOrder('TestUser','ipa'); // uncomment to test manually
 </script>
 </body>
 </html>
