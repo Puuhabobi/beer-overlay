@@ -22,8 +22,8 @@
   }
 </style>
 
-<!-- 1️⃣ Load tmi.js via unpkg, works in browser -->
-<script src="https://unpkg.com/tmi.js@1.8.5/dist/tmi.min.js"></script>
+<!-- ✅ Browser-ready tmi.js that exposes global `tmi` -->
+<script src="https://twitchapps.github.io/tmi.js/dist/tmi.min.js"></script>
 
 </head>
 <body>
@@ -121,16 +121,12 @@ window.onload = function() {
 
   client.on('message', (channel, tags, message, self) => {
     if(self) return;
-
     if(message.toLowerCase().startsWith('!beer')) {
       const parts = message.split(' ');
       const beerType = parts[1] || 'lager';
       enqueueOrder(tags['display-name'] || tags.username, beerType);
     }
   });
-
-  // -------------------- MANUAL TEST --------------------
-  // enqueueOrder('TestUser','ipa'); // uncomment to test manually
 };
 </script>
 </body>
